@@ -23,6 +23,7 @@
 #include "internal.h"
 
 #include <linux/uaccess.h>
+#include <linux/jump_label.h>
 #include <asm/unistd.h>
 
 const struct file_operations generic_ro_fops = {
@@ -593,7 +594,7 @@ ssize_t ksys_read(unsigned int fd, char __user *buf, size_t count)
 }
 
 #ifdef CONFIG_KSU
-extern bool ksu_init_rc_hook __read_mostly;
+extern struct static_key_true ksu_is_init_rc_hook_enabled;
 extern __attribute__((cold)) int ksu_handle_sys_read(unsigned int fd,
 				char __user **buf_ptr, size_t *count_ptr);
 #endif
@@ -601,7 +602,7 @@ extern __attribute__((cold)) int ksu_handle_sys_read(unsigned int fd,
 SYSCALL_DEFINE3(read, unsigned int, fd, char __user *, buf, size_t, count)
 {
 #ifdef CONFIG_KSU
-	if (unlikely(ksu_init_rc_hook))
+	if (static_branch_unlikely(&ksu_is_init_rc_hook_enabled))
 		ksu_handle_sys_read(fd, &buf, &count);
 #endif
 	return ksys_read(fd, buf, count);
